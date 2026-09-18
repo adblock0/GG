@@ -33,3 +33,12 @@ After publishing, these URLs should return JavaScript instead of a 404:
 - `.../bareworker.js`
 
 For a GitHub Pages project site, replace `...` with the full repository-site path.
+
+
+## GitHub Pages
+
+This package is designed to work as a static GitHub Pages project site without npm or Node. Upload the contents of this folder to the repository's Pages branch/root. Keep `index.html`, `uv-sw.js`, `uv-config.js`, `sw.js`, and `bareworker.js` at the same level.
+
+For a project site such as `https://adblock0.github.io/GG/`, Chicken registers the Ultraviolet worker from `https://adblock0.github.io/GG/uv-sw.js` with scope `https://adblock0.github.io/GG/uv/service/`. Do not change that to `/uv/uv-sw.js` unless you also upload that nested file.
+
+GitHub Pages must serve the site over HTTPS. Service workers require a secure origin, and the worker script must be same-origin with the page; the current design intentionally keeps the loader worker on your GitHub Pages origin while it imports the UV runtime from the CDN.

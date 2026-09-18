@@ -432,8 +432,18 @@
       await loadScriptOnce(REMOTE.uvBundle);
       const siteBase = new URL('./', document.baseURI);
       const uvPrefix = new URL('uv/service/', siteBase);
-      const uvSwUrl = new URL('uv/uv-sw.js', siteBase);
-      const uvConfigUrl = new URL('uv/uv-config.js', siteBase);
+      // The worker lives beside index.html so GitHub Pages project sites do not
+      // require a nested /uv/ directory just to register a scoped worker.
+      const uvSwUrl = new URL('uv-sw.js', siteBase);
+      const uvConfigUrl = new URL('uv-config.js', siteBase);
+
+      // Remove the old nested worker registration from earlier Chicken builds.
+      // It can otherwise keep a stale /uv/uv-sw.js registration around.
+      const oldRegistrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(oldRegistrations.filter(r => {
+        const u = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '';
+        return u.includes('/uv/uv-sw.js');
+      }).map(r => r.unregister()));
       window.__uv$config = {
         prefix: uvPrefix.pathname,
         encodeUrl: Ultraviolet.codec.xor.encode,
