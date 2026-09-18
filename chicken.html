@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <title>Chicken</title>
+  <link id="favicon" rel="icon" href="https://kidsclassnest.com/images/icons/chromenewtab.ico" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #000;
+      --panel: #0d0d0f;
+      --panel-2: #121216;
+      --panel-3: #17171b;
+      --line: #2a2b31;
+      --line-soft: #202126;
+      --text: #fff;
+      --muted: #a6a9b2;
+      --muted-2: #6e727e;
+      --accent: #fff;
+      --danger: #ff6363;
+      --radius: 14px;
+      --shadow: 0 22px 70px rgba(0,0,0,.55);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, select { font: inherit; }
+    button { color:inherit; }
+    .app { height:100%; display:flex; flex-direction:column; background:var(--bg); }
+    .chrome { background:#040404; border-bottom:1px solid var(--line-soft); }
+    .tab-row { height:45px; display:flex; align-items:flex-end; gap:4px; padding:6px 8px 0; }
+    .tabs { display:flex; align-items:flex-end; gap:4px; min-width:0; flex:1; overflow:auto hidden; scrollbar-width:none; }
+    .tabs::-webkit-scrollbar { display:none; }
+    .tab { height:38px; min-width:150px; max-width:250px; padding:0 9px 0 12px; display:flex; align-items:center; gap:9px; border:1px solid transparent; border-bottom-color:transparent; border-radius:10px 10px 0 0; background:#09090a; color:#acafb9; cursor:pointer; }
+    .tab.active { background:#101014; border-color:var(--line); color:var(--text); }
+    .tab-title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; text-align:left; font-size:12px; }
+    .tab-icon { width:16px; height:16px; object-fit:contain; border-radius:3px; opacity:.95; flex:0 0 auto; }
+    .tab-close { width:22px; height:22px; border:0; background:transparent; border-radius:6px; opacity:.55; cursor:pointer; }
+    .tab-close:hover { background:#1c1c20; opacity:1; }
+    .new-tab { margin:0 0 3px; width:34px; height:34px; border:1px solid var(--line); background:#0b0b0e; border-radius:9px; cursor:pointer; font-size:20px; line-height:1; }
+    .new-tab:hover, .tool:hover { background:#17171b; border-color:#3a3b43; }
+    .nav-row { height:58px; display:flex; align-items:center; gap:7px; padding:7px 10px 9px; border-top:1px solid #070709; }
+    .tool { width:38px; height:38px; border:1px solid var(--line); background:#0a0a0d; border-radius:9px; display:grid; place-items:center; cursor:pointer; color:#d8dbe4; }
+    .tool:disabled { opacity:.4; cursor:default; }
+    .tool svg { width:19px; height:19px; }
+    .omnibox { flex:1; min-width:120px; height:40px; padding:0 16px; border:1px solid #303139; background:#15161a; border-radius:12px; color:#fff; outline:none; font-size:14px; }
+    .omnibox::placeholder { color:#777b86; }
+    .omnibox:focus { border-color:#4b4d56; box-shadow:0 0 0 3px rgba(255,255,255,.04); }
+    .right-tools { display:flex; gap:7px; }
+    .brand-chip { width:90px; color:#7e828e; font-size:10px; letter-spacing:.22em; text-transform:uppercase; user-select:none; padding-left:4px; }
+    .content { flex:1; min-height:0; position:relative; background:#000; }
+    .page { position:absolute; inset:0; display:none; }
+    .page.active { display:block; }
+    .home { height:100%; width:100%; display:flex; justify-content:center; align-items:center; overflow:auto; padding:40px 24px 60px; }
+    .home-inner { width:min(650px, 100%); text-align:center; margin:0 auto; }
+    .chicken-mark { font-size:12px; letter-spacing:.42em; text-transform:uppercase; color:#8d919c; margin-bottom:18px; }
+    .wordmark { font-weight:500; letter-spacing:.34em; font-size:clamp(28px, 4vw, 44px); color:#fff; margin:0 0 20px; }
+    .tagline { color:#7c808a; font-size:13px; margin-bottom:28px; }
+    .search-wrap { width:min(650px, 100%); margin:0 auto 26px; position:relative; }
+    .search-input { width:100%; height:54px; border-radius:16px; border:1px solid #34353d; background:#111115; color:#fff; padding:0 18px 0 48px; outline:none; font-size:15px; }
+    .search-input:focus { border-color:#51535d; box-shadow:0 0 0 4px rgba(255,255,255,.035); }
+    .search-icon { position:absolute; left:18px; top:50%; transform:translateY(-50%); color:#8c909b; pointer-events:none; }
+    .shortcut-grid { display:grid; grid-template-columns:repeat(4, minmax(120px, 1fr)); gap:10px; width:min(650px,100%); margin:0 auto; }
+    .shortcut { min-height:82px; padding:16px 12px; border:1px solid #23242a; background:#08080b; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; cursor:pointer; transition:.16s ease; }
+    .shortcut:hover { background:#111116; border-color:#3a3b42; transform:translateY(-1px); }
+    .shortcut-icon { width:24px; height:24px; display:grid; place-items:center; color:#e9ecf4; font-size:19px; }
+    .shortcut-name { font-size:12px; color:#d2d5de; }
+    .proxy-frame { width:100%; height:100%; border:0; background:white; }
+    .statusbar { position:absolute; left:14px; bottom:12px; z-index:5; background:rgba(8,8,10,.82); border:1px solid #292a30; color:#9296a0; border-radius:999px; padding:6px 10px; font-size:10px; backdrop-filter:blur(10px); pointer-events:none; }
+    .settings-backdrop, .extensions-backdrop { position:absolute; inset:0; display:none; place-items:center; z-index:20; background:rgba(0,0,0,.72); backdrop-filter:blur(8px); }
+    .settings-backdrop.open, .extensions-backdrop.open { display:grid; }
+    .modal { width:min(760px, calc(100vw - 28px)); max-height:calc(100vh - 34px); overflow:auto; background:#0d0d10; border:1px solid #30313a; border-radius:18px; box-shadow:var(--shadow); }
+    .modal-head { position:sticky; top:0; background:#0d0d10; display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid #25262d; z-index:3; }
+    .modal-title { font-size:15px; font-weight:600; }
+    .close-modal { width:30px; height:30px; border:1px solid #2f3037; background:#111116; border-radius:8px; cursor:pointer; }
+    .section { padding:17px 20px; border-bottom:1px solid #222329; }
+    .section:last-child { border-bottom:0; }
+    .section h3 { margin:0 0 6px; font-size:12px; }
+    .section p { margin:0 0 13px; color:#848893; font-size:11px; line-height:1.55; }
+    .cloak-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .cloak-card { text-align:left; padding:12px; border:1px solid #2d2e35; background:#0a0a0e; border-radius:12px; cursor:pointer; }
+    .cloak-card.selected { border-color:#a6a8af; background:#111116; }
+    .cloak-top { display:flex; align-items:center; gap:10px; }
+    .cloak-top img { width:25px; height:25px; }
+    .cloak-title { font-size:12px; }
+    .cloak-url { font-size:10px; color:#6f737e; margin-top:8px; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .field { display:flex; flex-direction:column; gap:7px; }
+    .field label { color:#989ca6; font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
+    .text-field, .select-field { height:40px; border-radius:10px; border:1px solid #2e3037; background:#111116; color:#fff; padding:0 11px; outline:none; }
+    .text-field:focus, .select-field:focus { border-color:#555761; }
+    .key-capture { display:flex; gap:8px; }
+    .key-capture .text-field { flex:1; }
+    .capture-btn { min-width:130px; border:1px solid #3a3b43; background:#16171b; border-radius:10px; cursor:pointer; }
+    .choice-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .choice { padding:12px; border:1px solid #2b2c33; background:#0a0a0d; border-radius:11px; cursor:pointer; }
+    .choice.selected { border-color:#a4a7b0; background:#121217; }
+    .choice strong { display:block; font-size:12px; }
+    .choice span { display:block; margin-top:4px; color:#777b86; font-size:10px; line-height:1.4; }
+    .modal-actions { display:flex; justify-content:flex-end; padding:15px 20px; gap:8px; }
+    .btn { height:38px; padding:0 14px; border:1px solid #34353c; background:#121216; border-radius:10px; cursor:pointer; }
+    .btn.primary { background:#f5f5f5; color:#000; border-color:#fff; font-weight:600; }
+    .btn.danger { color:#ff9696; }
+    .scripts-empty { padding:16px; border:1px dashed #34353c; border-radius:12px; color:#8d919a; font-size:11px; }
+    .script-row { display:flex; align-items:center; justify-content:space-between; padding:11px 12px; border:1px solid #2b2c33; background:#0a0a0e; border-radius:11px; margin-bottom:8px; }
+    .script-row strong { font-size:12px; }
+    .script-row span { display:block; color:#6f737e; font-size:10px; margin-top:4px; }
+    .extension-import { display:flex; gap:10px; align-items:center; margin-top:12px; }
+    input[type="file"] { color:#8a8e99; font-size:10px; max-width:100%; }
+    .toast { position:absolute; left:50%; bottom:22px; transform:translate(-50%, 14px); padding:9px 13px; background:#ececef; color:#0a0a0a; border-radius:999px; font-size:11px; font-weight:600; opacity:0; pointer-events:none; transition:.18s ease; z-index:50; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    @media (max-width: 680px) {
+      .brand-chip { display:none; }
+      .tab { min-width:130px; }
+      .shortcut-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
+      .field-row, .choice-row, .cloak-grid { grid-template-columns:1fr; }
+      .nav-row { gap:5px; }
+      .tool { width:35px; height:35px; }
+      .omnibox { height:38px; padding:0 12px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="chrome">
+    <div class="tab-row">
+      <div id="tabs" class="tabs"></div>
+      <button id="newTabBtn" class="new-tab" title="New tab">+</button>
+    </div>
+    <div class="nav-row">
+      <button id="backBtn" class="tool" title="Back" aria-label="Back"><svg viewBox="0 0 24 24" fill="none"><path d="M15 6 9 12l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="forwardBtn" class="tool" title="Forward" aria-label="Forward"><svg viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="refreshBtn" class="tool" title="Refresh" aria-label="Refresh"><svg viewBox="0 0 24 24" fill="none"><path d="M19 8a7 7 0 1 0 1 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M19 4v4h-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="homeBtn" class="tool" title="Home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none"><path d="m4 11 8-7 8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
+      <div class="brand-chip">Chicken</div>
+      <input id="addressBar" class="omnibox" autocomplete="off" spellcheck="false" placeholder="Search or enter URL..." />
+      <div class="right-tools">
+        <button id="extensionsBtn" class="tool" title="Extensions" aria-label="Extensions"><svg viewBox="0 0 24 24" fill="none"><path d="M9 4a2 2 0 1 1 4 0v2h3a2 2 0 0 1 2 2v3h2a2 2 0 1 1 0 4h-2v3a2 2 0 0 1-2 2h-3v-2a2 2 0 1 0-4 0v2H6a2 2 0 0 1-2-2v-3h2a2 2 0 1 0 0-4H4V8a2 2 0 0 1 2-2h3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+        <button id="settingsBtn" class="tool" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z" stroke="currentColor" stroke-width="1.6"/><path d="m19 13 .1-1-.1-1 2-1.2-2-3.4-2.1 1a8.2 8.2 0 0 0-1.7-1L15 4h-4l-.2 2.4a8.2 8.2 0 0 0-1.7 1L7 6.4l-2 3.4L7 11a8.2 8.2 0 0 0 0 2l-2 1.2 2 3.4 2.1-1a8.2 8.2 0 0 0 1.7 1L11 20h4l.2-2.4a8.2 8.2 0 0 0 1.7-1l2.1 1 2-3.4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <main id="content" class="content"></main>
+  <div id="toast" class="toast"></div>
+
+  <div id="settingsBackdrop" class="settings-backdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
+      <div class="modal-head"><div class="modal-title">Settings</div><button class="close-modal" data-close-settings>×</button></div>
+      <section class="section">
+        <h3>Tab Cloak</h3>
+        <p>For normal/non-proxy tabs, change the title and favicon shown by the browser tab.</p>
+        <div class="cloak-grid" id="cloakGrid">
+          <button class="cloak-card" data-cloak="newtab"><div class="cloak-top"><img src="https://kidsclassnest.com/images/icons/chromenewtab.ico" alt=""/><div class="cloak-title">New Tab</div></div><div class="cloak-url">chromenewtab.ico</div></button>
+          <button class="cloak-card" data-cloak="clever"><div class="cloak-top"><img src="https://kidsclassnest.com/images/icons/clever.png" alt=""/><div class="cloak-title">Clever - Portal</div></div><div class="cloak-url">clever.png</div></button>
+        </div>
+      </section>
+      <section class="section">
+        <h3>Panic Button</h3>
+        <p>Press the keybind anywhere in the app to navigate the current tab to the panic URL without opening a new tab.</p>
+        <div class="field-row">
+          <div class="field"><label>Hotkey (keybind)</label><div class="key-capture"><input id="panicHotkey" class="text-field" readonly/><button id="captureHotkey" class="capture-btn">Press a key</button></div></div>
+          <div class="field"><label>Panic URL</label><input id="panicUrl" class="text-field" value="https://classroom.google.com"/></div>
+        </div>
+      </section>
+      <section class="section">
+        <h3>Browse Engine (change proxy)</h3>
+        <p>Ultraviolet is the default. Scramjet is wired as a selectable engine for deployments that expose its service-worker routes.</p>
+        <div class="choice-row" id="engineChoices">
+          <button class="choice" data-engine="ultraviolet"><strong>Ultraviolet</strong><span>Service-worker proxy route: /uv/service/</span></button>
+          <button class="choice" data-engine="scramjet"><strong>Scramjet</strong><span>Service-worker proxy route: /~/sj/</span></button>
+        </div>
+      </section>
+      <section class="section">
+        <h3>Transport</h3>
+        <p>Choose the transport used by the proxy backend. This mirrors the Epoxy/Libcurl transport options used by the upstream projects.</p>
+        <div class="choice-row" id="transportChoices">
+          <button class="choice" data-transport="epoxy"><strong>Epoxy</strong><span>Encrypted proxy transport.</span></button>
+          <button class="choice" data-transport="libcurl"><strong>Libcurl</strong><span>Encrypted libcurl-based transport.</span></button>
+        </div>
+      </section>
+      <div class="modal-actions"><button class="btn" data-close-settings>Close</button><button id="saveSettings" class="btn primary">Apply settings</button></div>
+    </div>
+  </div>
+
+  <div id="extensionsBackdrop" class="extensions-backdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Extensions">
+      <div class="modal-head"><div class="modal-title">Extensions</div><button class="close-modal" data-close-extensions>×</button></div>
+      <section class="section">
+        <h3>My Scripts</h3>
+        <p>Import JavaScript userscripts into this browser profile. Imported files are stored locally in your browser.</p>
+        <div id="scriptsList"></div>
+        <div class="extension-import"><input id="scriptInput" type="file" accept=".js,application/javascript,text/javascript"/><button id="importScript" class="btn primary">Import JavaScript</button></div>
+      </section>
+      <div class="modal-actions"><button class="btn" data-close-extensions>Close</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const APP_TITLE = 'Chicken';
+  const ICONS = {
+    newtab: 'https://kidsclassnest.com/images/icons/chromenewtab.ico',
+    clever: 'https://kidsclassnest.com/images/icons/clever.png'
+  };
+  const CLOAKS = {
+    newtab: { title: 'New Tab', icon: ICONS.newtab },
+    clever: { title: 'Clever - Portal', icon: ICONS.clever }
+  };
+  const defaults = {
+    engine: 'ultraviolet',
+    transport: 'epoxy',
+    cloak: 'newtab',
+    panicHotkey: '',
+    panicUrl: 'https://classroom.google.com'
+  };
+
+  const $ = (s) => document.querySelector(s);
+  const tabsEl = $('#tabs');
+  const contentEl = $('#content');
+  const addressBar = $('#addressBar');
+  const backBtn = $('#backBtn');
+  const forwardBtn = $('#forwardBtn');
+  const refreshBtn = $('#refreshBtn');
+  const homeBtn = $('#homeBtn');
+  const toastEl = $('#toast');
+  const faviconEl = $('#favicon');
+
+  let settings = loadSettings();
+  let tabs = [];
+  let activeId = null;
+  let captureMode = false;
+  let toastTimer = null;
+  let uvReadyPromise = null;
+  let scramjetReadyPromise = null;
+  let bareMuxConnection = null;
+  let transportModule = null;
+
+  function loadSettings() {
+    try { return { ...defaults, ...(JSON.parse(localStorage.getItem('chicken.settings') || '{}')) }; }
+    catch { return { ...defaults }; }
+  }
+  function persistSettings() { localStorage.setItem('chicken.settings', JSON.stringify(settings)); }
+
+  function createTab(url = null) {
+    const id = crypto.randomUUID?.() || String(Date.now()) + Math.random();
+    const tab = { id, url, history: url ? [url] : [], historyIndex: url ? 0 : -1, proxy: !!url, title: url ? hostname(url) : 'New Tab', icon: ICONS.newtab, iframe: null, home: null };
+    tabs.push(tab);
+    activeId = id;
+    renderTabs();
+    renderActiveTab();
+    syncChrome();
+    return tab;
+  }
+
+  function getActive() { return tabs.find(t => t.id === activeId) || null; }
+
+  function renderTabs() {
+    tabsEl.innerHTML = '';
+    for (const tab of tabs) {
+      const btn = document.createElement('button');
+      btn.className = 'tab' + (tab.id === activeId ? ' active' : '');
+      btn.title = tab.title;
+      const img = document.createElement('img'); img.className = 'tab-icon'; img.src = tab.icon || ICONS.newtab; img.alt = '';
+      const span = document.createElement('span'); span.className = 'tab-title'; span.textContent = tab.title;
+      const close = document.createElement('button'); close.className = 'tab-close'; close.title = 'Close tab'; close.innerHTML = '×';
+      close.addEventListener('click', (e) => { e.stopPropagation(); closeTab(tab.id); });
+      btn.append(img, span, close);
+      btn.addEventListener('click', () => { activeId = tab.id; renderTabs(); renderActiveTab(); syncChrome(); });
+      tabsEl.appendChild(btn);
+    }
+  }
+
+  function closeTab(id) {
+    const idx = tabs.findIndex(t => t.id === id);
+    if (idx < 0) return;
+    if (tabs.length === 1) { createTab(); tabs.splice(idx, 1); } else {
+      const wasActive = activeId === id;
+      tabs.splice(idx, 1);
+      if (wasActive) activeId = tabs[Math.max(0, idx - 1)].id;
+    }
+    renderTabs(); renderActiveTab(); syncChrome();
+  }
+
+  function renderActiveTab() {
+    contentEl.innerHTML = '';
+    const tab = getActive();
+    if (!tab) return;
+    if (!tab.proxy || !tab.url) {
+      renderHome(tab);
+      updateBrowserTabIdentity(tab, false);
+      return;
+    }
+    const page = document.createElement('div'); page.className = 'page active';
+    const frame = document.createElement('iframe'); frame.className = 'proxy-frame'; frame.allow = 'clipboard-read; clipboard-write; fullscreen'; frame.referrerPolicy = 'no-referrer';
+    frame.title = tab.title;
+    tab.iframe = frame;
+    frame.addEventListener('load', () => {
+      $('#proxy-status')?.remove();
+      updateBrowserTabIdentity(tab, true);
+    });
+    page.appendChild(frame);
+    const status = document.createElement('div'); status.id = 'proxy-status'; status.className = 'statusbar'; status.textContent = `${settings.engine} • ${settings.transport}`;
+    page.appendChild(status);
+    contentEl.appendChild(page);
+    loadProxied(tab, frame);
+    updateBrowserTabIdentity(tab, true);
+  }
+
+  function renderHome(tab) {
+    const page = document.createElement('section'); page.className = 'page active home';
+    const inner = document.createElement('div'); inner.className = 'home-inner';
+    inner.innerHTML = `
+      <h1 class="wordmark">Chicken</h1>
+      <form id="homeSearchForm" class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="homeSearch" class="search-input" autocomplete="off" spellcheck="false" placeholder="Search or enter URL..." />
+      </form>
+      <div class="shortcut-grid">
+        ${shortcutButton('Spotify', '♪', 'https://open.spotify.com/')}
+        ${shortcutButton('Discord', '◎', 'https://discord.gg/')}
+        ${shortcutButton('AMP', 'A', 'https://music.apple.com/us/')}
+        ${shortcutButton('ChatGPT', '✦', 'https://ask-chat.ai/')}
+      </div>`;
+    page.appendChild(inner); contentEl.appendChild(page);
+    $('#homeSearchForm').addEventListener('submit', (e) => { e.preventDefault(); navigate($('#homeSearch').value); });
+    $('#homeSearch')?.focus();
+    page.querySelectorAll('[data-url]').forEach(btn => btn.addEventListener('click', () => navigate(btn.dataset.url)));
+  }
+
+  function shortcutButton(name, icon, url) {
+    return `<button type="button" class="shortcut" data-url="${escapeHtml(url)}"><span class="shortcut-icon">${icon}</span><span class="shortcut-name">${name}</span></button>`;
+  }
+
+  async function loadProxied(tab, frame) {
+    try {
+      const target = tab.url;
+      if (location.protocol !== 'http:' && location.protocol !== 'https:') {
+        throw new Error('Proxy runtime requires HTTP(S); service workers do not run from file:// pages.');
+      }
+
+      if (settings.engine === 'ultraviolet') {
+        const runtime = await ensureUltraviolet();
+        frame.src = ultravioletUrl(target);
+        tab.frameController = null;
+        tab.iframe = frame;
+        tab.proxyRuntime = runtime;
+      } else {
+        const runtime = await ensureScramjet();
+        // Scramjet owns its iframe/frame wrapper. Replace the placeholder iframe
+        // with a controller-managed frame so URL rewriting, workers and history
+        // hooks are initialized correctly.
+        const created = runtime.createFrame();
+        created.frame.className = 'proxy-frame';
+        created.frame.allow = 'clipboard-read; clipboard-write; fullscreen';
+        created.frame.referrerPolicy = 'no-referrer';
+        created.frame.title = tab.title;
+        created.frame.addEventListener('load', () => {
+          $('#proxy-status')?.remove();
+          updateBrowserTabIdentity(tab, true);
+        });
+        pageReplaceFrame(frame, created.frame);
+        tab.frameController = created;
+        tab.iframe = created.frame;
+        created.go(target);
+      }
+      addressBar.value = target;
+    } catch (err) {
+      console.error('Proxy load failed:', err);
+      showToast(err?.message || `${capitalize(settings.engine)} proxy is not available on this host`);
+      const status = document.getElementById('proxy-status');
+      if (status) status.textContent = `${settings.engine} • proxy startup failed`;
+      addressBar.value = tab.url;
+    }
+  }
+
+  function pageReplaceFrame(oldFrame, newFrame) {
+    if (oldFrame?.parentNode) oldFrame.parentNode.replaceChild(newFrame, oldFrame);
+  }
+
+  async function ensureTransport() {
+    if (!window.BareMux) await loadScriptOnce('/baremux/index.js');
+    if (!window.BareMux?.BareMuxConnection) throw new Error('BareMux did not load');
+    if (!bareMuxConnection) bareMuxConnection = new window.BareMux.BareMuxConnection('/baremux/worker.js');
+
+    const nextModule = settings.transport === 'epoxy' ? '/epoxy/index.mjs' : '/libcurl/index.mjs';
+    if (transportModule !== nextModule || (await bareMuxConnection.getTransport()) !== nextModule) {
+      const wispUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/wisp/`;
+      const args = settings.transport === 'epoxy'
+        ? [{ wisp: wispUrl }]
+        : [{ websocket: wispUrl }];
+      await bareMuxConnection.setTransport(nextModule, args);
+      transportModule = nextModule;
+    }
+    return bareMuxConnection;
+  }
+
+  async function ensureUltraviolet() {
+    if (uvReadyPromise) return uvReadyPromise;
+    uvReadyPromise = (async () => {
+      if (!navigator.serviceWorker) throw new Error('Service workers unavailable');
+      await loadScriptOnce('/uv/uv.bundle.js');
+      await loadScriptOnce('/uv/uv.config.js');
+      if (!window.__uv$config) throw new Error('Ultraviolet config did not load');
+
+      // The transport must be ready before the UV worker starts handling requests.
+      await ensureTransport();
+      const reg = await navigator.serviceWorker.register('/uv/sw.js', {
+        scope: window.__uv$config.prefix,
+      });
+      await navigator.serviceWorker.ready;
+      return { reg, config: window.__uv$config };
+    })();
+    return uvReadyPromise;
+  }
+
+  async function ensureScramjet() {
+    if (scramjetReadyPromise) return scramjetReadyPromise;
+    scramjetReadyPromise = (async () => {
+      if (!navigator.serviceWorker) throw new Error('Service workers unavailable');
+      await loadScriptOnce('/scram/scramjet.all.js');
+      if (!window.BareMux) await loadScriptOnce('/baremux/index.js');
+      const controllerCtor = window.$scramjetLoadController?.().ScramjetController;
+      if (!controllerCtor) throw new Error('Scramjet controller did not load');
+      const scramjet = new controllerCtor({
+        files: {
+          wasm: '/scram/scramjet.wasm.wasm',
+          all: '/scram/scramjet.all.js',
+          sync: '/scram/scramjet.sync.js',
+        },
+      });
+      await scramjet.init();
+
+      // Set the transport before the service worker is ready, matching the
+      // upstream Scramjet App flow.
+      await ensureTransport();
+      await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      return scramjet;
+    })();
+    return scramjetReadyPromise;
+  }
+
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[data-dyn="${src}"]`)) return resolve();
+      const script = document.createElement('script'); script.src = src; script.async = true; script.dataset.dyn = src;
+      script.onload = resolve; script.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  function ultravioletUrl(target) {
+    const config = window.__uv$config;
+    if (!config?.encodeUrl || !config?.prefix) throw new Error('Ultraviolet config is unavailable');
+    return config.prefix + config.encodeUrl(target);
+  }
+
+  function navigate(input) {
+    const target = normalizeInput(input);
+    if (!target) return;
+    const tab = getActive();
+    if (!tab) return;
+    tab.url = target; tab.proxy = true; tab.title = hostname(target); tab.icon = siteIcon(target);
+    if (tab.historyIndex < tab.history.length - 1) tab.history = tab.history.slice(0, tab.historyIndex + 1);
+    tab.history.push(target); tab.historyIndex = tab.history.length - 1;
+    renderTabs(); renderActiveTab(); syncChrome();
+  }
+
+  function openUrlInNewTab(url) { const t = createTab(url); renderTabs(); renderActiveTab(); syncChrome(); return t; }
+
+  function normalizeInput(value) {
+    const raw = String(value || '').trim(); if (!raw) return null;
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return raw;
+    if (/^(localhost|127\.0\.0\.1)(:\d+)?(\/.*)?$/i.test(raw)) return 'http://' + raw;
+    if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(raw)) return 'https://' + raw;
+    return `https://www.google.com/search?q=${encodeURIComponent(raw)}`;
+  }
+
+  function hostname(url) { try { return new URL(url).hostname.replace(/^www\./,'') || 'New Tab'; } catch { return 'New Tab'; } }
+  function siteIcon(url) { try { return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64`; } catch { return ICONS.newtab; } }
+  function isProxyTab(tab) { return !!tab?.proxy && !!tab?.url; }
+
+  function goBack() {
+    const tab = getActive(); if (!tab || tab.historyIndex <= 0) return;
+    tab.historyIndex--; tab.url = tab.history[tab.historyIndex]; tab.title = hostname(tab.url); tab.icon = siteIcon(tab.url); renderTabs(); renderActiveTab(); syncChrome();
+  }
+  function goForward() {
+    const tab = getActive(); if (!tab || tab.historyIndex >= tab.history.length - 1) return;
+    tab.historyIndex++; tab.url = tab.history[tab.historyIndex]; tab.title = hostname(tab.url); tab.icon = siteIcon(tab.url); renderTabs(); renderActiveTab(); syncChrome();
+  }
+  function refresh() {
+    const tab = getActive(); if (!tab) return;
+    if (isProxyTab(tab) && tab.iframe) { tab.iframe.contentWindow?.location.reload(); }
+    else { renderActiveTab(); }
+  }
+  function home() { const tab = getActive(); if (!tab) return; tab.url = null; tab.proxy = false; tab.history = []; tab.historyIndex = -1; tab.title = 'New Tab'; tab.icon = ICONS.newtab; renderTabs(); renderActiveTab(); syncChrome(); }
+
+  function syncChrome() {
+    const tab = getActive();
+    if (!tab) return;
+    addressBar.value = tab.url || '';
+    backBtn.disabled = !isProxyTab(tab) || tab.historyIndex <= 0;
+    forwardBtn.disabled = !isProxyTab(tab) || tab.historyIndex >= tab.history.length - 1;
+    updateBrowserTabIdentity(tab, isProxyTab(tab));
+  }
+
+  function updateBrowserTabIdentity(tab, proxied) {
+    if (proxied) {
+      document.title = tab?.title ? `${tab.title} • Chicken` : APP_TITLE;
+      faviconEl.href = siteIcon(tab.url);
+    } else {
+      const cloak = CLOAKS[settings.cloak] || CLOAKS.newtab;
+      document.title = cloak.title;
+      faviconEl.href = cloak.icon;
+    }
+  }
+
+  function openSettings() {
+    syncSettingsUI(); $('#settingsBackdrop').classList.add('open');
+  }
+  function closeSettings() { $('#settingsBackdrop').classList.remove('open'); captureMode = false; $('#captureHotkey').textContent = 'Press a key'; }
+  function openExtensions() { renderScripts(); $('#extensionsBackdrop').classList.add('open'); }
+  function closeExtensions() { $('#extensionsBackdrop').classList.remove('open'); }
+
+  function syncSettingsUI() {
+    $('#panicHotkey').value = settings.panicHotkey || 'Not set';
+    $('#panicUrl').value = settings.panicUrl;
+    document.querySelectorAll('#cloakGrid .cloak-card').forEach(el => el.classList.toggle('selected', el.dataset.cloak === settings.cloak));
+    document.querySelectorAll('#engineChoices .choice').forEach(el => el.classList.toggle('selected', el.dataset.engine === settings.engine));
+    document.querySelectorAll('#transportChoices .choice').forEach(el => el.classList.toggle('selected', el.dataset.transport === settings.transport));
+  }
+
+  async function saveSettings() {
+    settings.panicHotkey = $('#panicHotkey').value === 'Not set' ? '' : $('#panicHotkey').value.trim();
+    settings.panicUrl = $('#panicUrl').value.trim() || defaults.panicUrl;
+    persistSettings();
+    closeSettings();
+    const active = getActive();
+    if (active) updateBrowserTabIdentity(active, isProxyTab(active));
+    if (active && isProxyTab(active)) {
+      // Apply engine/transport changes immediately to the active proxy tab.
+      uvReadyPromise = null;
+      scramjetReadyPromise = null;
+      transportModule = null;
+      renderTabs();
+      renderActiveTab();
+      syncChrome();
+    }
+    showToast('Settings applied');
+  }
+
+  function handlePanic() {
+    const hot = settings.panicHotkey;
+    if (!hot) return;
+    const key = hot.toLowerCase();
+    const panic = normalizeInput(settings.panicUrl) || defaults.panicUrl;
+    if (keyMatches(pendingEvent, key)) { navigate(panic); pendingEvent = null; }
+  }
+
+  let pendingEvent = null;
+  function eventSignature(e) {
+    return [e.ctrlKey?'ctrl':'', e.altKey?'alt':'', e.shiftKey?'shift':'', e.metaKey?'meta':'', e.key].filter(Boolean).join('+').toLowerCase();
+  }
+  function keyMatches(e, signature) { if (!e) return false; return eventSignature(e) === signature; }
+
+  function setupHotkeyCapture() {
+    $('#captureHotkey').addEventListener('click', () => { captureMode = true; $('#captureHotkey').textContent = 'Press a key…'; $('#panicHotkey').value = 'Waiting…'; });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (captureMode) {
+      e.preventDefault(); e.stopPropagation();
+      if (['Shift','Control','Alt','Meta'].includes(e.key)) return;
+      settings.panicHotkey = eventSignature(e); $('#panicHotkey').value = settings.panicHotkey; captureMode = false; $('#captureHotkey').textContent = 'Press a key'; return;
+    }
+    pendingEvent = e;
+    handlePanic();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') { e.preventDefault(); addressBar.focus(); addressBar.select(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') { e.preventDefault(); createTab(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') { e.preventDefault(); closeTab(activeId); }
+    if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goBack(); }
+    if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goForward(); }
+  });
+
+  function renderScripts() {
+    const list = $('#scriptsList');
+    let scripts = [];
+    try { scripts = JSON.parse(localStorage.getItem('chicken.scripts') || '[]'); } catch { scripts = []; }
+    if (!scripts.length) { list.innerHTML = '<div class="scripts-empty">No userscripts yet. New Userscript (Javascript IMPORT)</div>'; return; }
+    list.innerHTML = '';
+    for (const script of scripts) {
+      const row = document.createElement('div'); row.className = 'script-row';
+      const left = document.createElement('div'); const strong = document.createElement('strong'); strong.textContent = script.name; const meta = document.createElement('span'); meta.textContent = `${script.size} bytes · imported locally`; left.append(strong, meta);
+      const del = document.createElement('button'); del.className='btn danger'; del.textContent='Remove'; del.addEventListener('click', () => removeScript(script.id));
+      row.append(left, del); list.appendChild(row);
+    }
+  }
+  function importScript() {
+    const input = $('#scriptInput'); const file = input.files?.[0]; if (!file) { showToast('Choose a JavaScript file first'); return; }
+    if (!/\.js$/i.test(file.name)) { showToast('Only .js userscripts are accepted'); return; }
+    const reader = new FileReader(); reader.onload = () => {
+      let scripts = []; try { scripts = JSON.parse(localStorage.getItem('chicken.scripts') || '[]'); } catch {}
+      scripts.push({ id: crypto.randomUUID?.() || String(Date.now()) + Math.random(), name:file.name, size:file.size, source:String(reader.result || '') });
+      localStorage.setItem('chicken.scripts', JSON.stringify(scripts)); input.value=''; renderScripts(); showToast('Userscript imported');
+    }; reader.readAsText(file);
+  }
+  function removeScript(id) { let scripts=[]; try{scripts=JSON.parse(localStorage.getItem('chicken.scripts')||'[]')}catch{} scripts=scripts.filter(s=>s.id!==id); localStorage.setItem('chicken.scripts',JSON.stringify(scripts)); renderScripts(); }
+
+  function escapeHtml(str) { return String(str).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+  function capitalize(s) { return s ? s[0].toUpperCase()+s.slice(1) : s; }
+  function showToast(msg) { clearTimeout(toastTimer); toastEl.textContent=msg; toastEl.classList.add('show'); toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2200); }
+
+  // Events
+  backBtn.addEventListener('click', goBack);
+  forwardBtn.addEventListener('click', goForward);
+  refreshBtn.addEventListener('click', refresh);
+  homeBtn.addEventListener('click', home);
+  $('#newTabBtn').addEventListener('click', () => createTab());
+  $('#extensionsBtn').addEventListener('click', openExtensions);
+  $('#settingsBtn').addEventListener('click', openSettings);
+  addressBar.addEventListener('keydown', e => { if (e.key === 'Enter') navigate(addressBar.value); });
+  document.querySelectorAll('[data-close-settings]').forEach(b => b.addEventListener('click', closeSettings));
+  document.querySelectorAll('[data-close-extensions]').forEach(b => b.addEventListener('click', closeExtensions));
+  $('#saveSettings').addEventListener('click', saveSettings);
+  $('#importScript').addEventListener('click', importScript);
+  setupHotkeyCapture();
+
+  document.querySelectorAll('#cloakGrid .cloak-card').forEach(el => el.addEventListener('click', () => { settings.cloak = el.dataset.cloak; syncSettingsUI(); }));
+  document.querySelectorAll('#engineChoices .choice').forEach(el => el.addEventListener('click', () => { settings.engine = el.dataset.engine; syncSettingsUI(); }));
+  document.querySelectorAll('#transportChoices .choice').forEach(el => el.addEventListener('click', () => { settings.transport = el.dataset.transport; syncSettingsUI(); }));
+
+  // Close modals on backdrop click.
+  $('#settingsBackdrop').addEventListener('click', e => { if (e.target.id === 'settingsBackdrop') closeSettings(); });
+  $('#extensionsBackdrop').addEventListener('click', e => { if (e.target.id === 'extensionsBackdrop') closeExtensions(); });
+
+  // Initial tab.
+  createTab();
+  syncSettingsUI();
+})();
+</script>
+</body>
+</html>
