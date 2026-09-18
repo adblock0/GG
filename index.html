@@ -424,19 +424,21 @@
     uvReadyPromise = (async () => {
       if (!navigator.serviceWorker) throw new Error('Service workers unavailable');
       await loadScriptOnce(REMOTE.uvBundle);
-      if (!window.__uv$config) {
-        window.__uv$config = {
-          prefix: '/uv/service/',
-          encodeUrl: Ultraviolet.codec.xor.encode,
-          decodeUrl: Ultraviolet.codec.xor.decode,
-          handler: REMOTE.uvHandler,
-          bundle: REMOTE.uvBundle,
-          config: '/uv-config.js',
-          sw: '/uv-sw.js'
-        };
-      }
+      const siteBase = new URL('./', document.baseURI);
+      const uvPrefix = new URL('uv/service/', siteBase);
+      const uvSwUrl = new URL('uv/uv-sw.js', siteBase);
+      const uvConfigUrl = new URL('uv/uv-config.js', siteBase);
+      window.__uv$config = {
+        prefix: uvPrefix.pathname,
+        encodeUrl: Ultraviolet.codec.xor.encode,
+        decodeUrl: Ultraviolet.codec.xor.decode,
+        handler: REMOTE.uvHandler,
+        bundle: REMOTE.uvBundle,
+        config: uvConfigUrl.pathname,
+        sw: uvSwUrl.pathname
+      };
       await ensureTransport();
-      const reg = await navigator.serviceWorker.register('/uv-sw.js', { scope: window.__uv$config.prefix });
+      const reg = await navigator.serviceWorker.register(uvSwUrl.href, { scope: uvPrefix.pathname });
       await reg.update();
       await navigator.serviceWorker.ready;
       return { reg, config: window.__uv$config };
@@ -451,14 +453,16 @@
       await loadScriptOnce(REMOTE.scramjet);
       const controllerCtor = window.$scramjetLoadController?.().ScramjetController;
       if (!controllerCtor) throw new Error('Scramjet controller did not load from the CDN');
-      const basePath = location.pathname.replace(/[^\/]*$/, '').replace(/\/$/, '') + '/';
+      const siteBase = new URL('./', document.baseURI);
+      const basePath = siteBase.pathname;
       const scramjet = new controllerCtor({
-        prefix: basePath + 'scramjet/',
+        prefix: new URL('scramjet/', siteBase).pathname,
         files: { wasm: REMOTE.scramjetWasm, all: REMOTE.scramjet, sync: REMOTE.scramjetSync }
       });
       await scramjet.init();
       await ensureTransport();
-      const reg = await navigator.serviceWorker.register(new URL('sw.js', document.baseURI).pathname, { scope: basePath });
+      const regUrl = new URL('sw.js', siteBase);
+      const reg = await navigator.serviceWorker.register(regUrl.href, { scope: basePath });
       await navigator.serviceWorker.ready;
       reg.active?.postMessage({ type: 'config', wispurl: wispUrl });
       return scramjet;

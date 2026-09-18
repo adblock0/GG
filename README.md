@@ -1,12 +1,35 @@
-# Chicken — static / no NPM build
+# Chicken — static/no-NPM deployment
 
-This version has **no package.json, no npm install, and no Node server**.
+This build is intentionally **no NPM / no Node**. It is designed to be uploaded as static files to an HTTPS host such as GitHub Pages.
 
-Upload all files in this folder to the same HTTPS origin. GitHub Pages, Cloudflare Pages, Netlify, Vercel static hosting, or another HTTPS static host works. Do **not** open `index.html` as `file://`; service workers are required for Scramjet/Ultraviolet and browsers only enable them in secure contexts (with `http://localhost` as the local-development exception).
+## Important file layout
+Upload the **contents of this folder** to the published site root (do not upload only `index.html`). Do not rename or remove the `uv/` folder. The required layout is:
 
-The proxy client is wired to the BareMux-compatible public Wisp demo used by the upstream ecosystem:
-`wss://wisp.mercurywork.shop/wisp/`
+```text
+index.html
+sw.js
+bareworker.js
+uv-sw.js                # compatibility shim
+uv-config.js            # compatibility shim
+uv/
+  uv-sw.js              # actual Ultraviolet service worker
+  uv-config.js
+```
 
-That endpoint is a third-party relay. For a permanent deployment, change `DEFAULT_WISP` in `index.html`, `sw.js`, and the client configuration to a Wisp server you control or trust.
+The page now registers `uv/uv-sw.js` relative to its own location. That fixes GitHub Pages project-site paths such as `https://adblock0.github.io/<repo>/uv/uv-sw.js`; the old build incorrectly requested `https://adblock0.github.io/uv-sw.js`.
 
-The code keeps Ultraviolet 3.2.10 as the requested default and provides Scramjet 1.x as the alternate engine. Current upstream documentation identifies Ultraviolet as superseded by Scramjet. The transport majors here intentionally match the Ultraviolet/Scramjet 1.x BareMux generation: Epoxy 2.x and Libcurl 1.x.
+## HTTPS
+Service workers require HTTPS (localhost is the normal development exception).
+
+## Proxy transport
+The UI still offers Ultraviolet/Scramjet and Epoxy/Libcurl. Those runtimes are loaded from their public CDNs. The Wisp relay URL can be changed from the app's transport configuration in the source.
+
+## GitHub Pages check
+After publishing, these URLs should return JavaScript instead of a 404:
+
+- `.../uv/uv-sw.js`
+- `.../uv/uv-config.js`
+- `.../sw.js`
+- `.../bareworker.js`
+
+For a GitHub Pages project site, replace `...` with the full repository-site path.
