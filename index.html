@@ -166,7 +166,7 @@
       </section>
       <section class="section">
         <h3>Browse Engine (change proxy)</h3>
-        <p>Ultraviolet is the default. Scramjet uses the same static, no-build setup. Proxy assets are loaded from public CDNs; the service worker stays local to this site.</p><p style="margin-top:8px">Search queries use the proxy app's default search engine: Google.</p>
+        <p>Ultraviolet is the default. Scramjet uses the same static, no-build setup. Proxy assets are loaded from public CDNs; the service worker stays local to this site.</p><p style="margin-top:8px">Search queries use the proxy default search engine template.</p>
         <div class="choice-row" id="engineChoices">
           <button class="choice" data-engine="ultraviolet"><strong>Ultraviolet</strong><span>Service-worker proxy route: /uv/service/</span></button>
           <button class="choice" data-engine="scramjet"><strong>Scramjet</strong><span>Service-worker proxy route: /~/sj/</span></button>
@@ -240,11 +240,12 @@
   let bareMuxConnection = null;
   let transportModule = null;
   const DEFAULT_WISP = 'wss://wisp.mercurywork.shop/wisp/';
-  // Match the search behavior used by the official Ultraviolet and Scramjet demo apps.
-  // Their hidden search-engine input defaults to Google.
+  // Search queries go through the proxy using the proxy-style default search template.
+  // This is deliberately not hardcoded to Google. DuckDuckGo is the default used by
+  // generated proxy projects referenced in the ProxDocs search-engine guide.
   const SEARCH_ENGINES = {
-    ultraviolet: 'https://www.google.com/search?q=%s',
-    scramjet: 'https://www.google.com/search?q=%s'
+    ultraviolet: 'https://duckduckgo.com/?q=%s',
+    scramjet: 'https://duckduckgo.com/?q=%s'
   };
   const REMOTE = {
     baremux: 'https://cdn.jsdelivr.net/npm/@mercuryworkshop/bare-mux@2.1.7/dist/index.mjs',
@@ -553,7 +554,7 @@
   }
 
   function hostname(url) { try { return new URL(url).hostname.replace(/^www\./,'') || 'New Tab'; } catch { return 'New Tab'; } }
-  function siteIcon(url) { try { return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64`; } catch { return ICONS.newtab; } }
+  function siteIcon(url) { try { return `https://icons.duckduckgo.com/ip3/${new URL(url).hostname}.ico`; } catch { return ICONS.newtab; } }
   function isProxyTab(tab) { return !!tab?.proxy && !!tab?.url; }
 
   function goBack() {
