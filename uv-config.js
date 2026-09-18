@@ -1,9 +1,8 @@
-/* Ultraviolet 3.x configuration for a static host using BareMux. */
+/* Ultraviolet 3.2.10 configuration for static GitHub Pages. */
 /* global Ultraviolet */
 const siteRoot = new URL("./", self.location.href);
-const proxyPrefix = new URL("service/", siteRoot).pathname;
 self.__uv$config = {
-  prefix: proxyPrefix,
+  prefix: new URL("uv/service/", siteRoot).pathname,
   bare: new URL("bare/", siteRoot).pathname,
   encodeUrl: Ultraviolet.codec.xor.encode,
   decodeUrl: Ultraviolet.codec.xor.decode,

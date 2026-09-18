@@ -1,14 +1,21 @@
-# Chicken — static / no-NPM
+# Chicken — GitHub Pages / no NPM
 
-Upload the contents of this folder to the root of your GitHub Pages site.
+This build fixes the Ultraviolet 404 by using a same-origin service-worker file at the site root:
 
-Files:
 - `index.html`
+- `uv-sw.js`
+- `uv-config.js`
 - `bareworker.js`
-- `sw.js` (kept for compatibility)
-- `uv/sw.js`
-- `uv/uv-config.js`
+- `sw.js` (Scramjet alternative)
 
-Ultraviolet is configured like the documented UV 3.x/BareMux setup: it has a `bare` endpoint, and BareMux routes Bare requests through the selected Wisp-backed transport. This is a static frontend, so GitHub Pages does not provide the relay itself.
+For a GitHub Pages project site such as `https://adblock0.github.io/GG/`, upload these files directly into the published root of the `GG` repository/site.
 
-After replacing the files, open your site once in Chromium, then hard-refresh. If Chrome has cached an older service-worker registration, DevTools > Application > Service Workers > Unregister can clear it.
+Ultraviolet is registered as:
+`/GG/uv-sw.js` with scope `/GG/uv/service/`.
+
+That means this URL must return HTTP 200:
+`https://adblock0.github.io/GG/uv-sw.js`
+
+You do not need NPM, Node, or a build step to host these static files.
+
+Important: GitHub Pages is a static host. The proxy transport still depends on a reachable Wisp WebSocket relay configured by Chicken. This build does not turn GitHub Pages into a Wisp server.
