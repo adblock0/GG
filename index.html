@@ -433,7 +433,7 @@
       await loadScriptOnce(REMOTE.uvBundle);
       const siteBase = new URL('./', document.baseURI);
       const uvPrefix = new URL('uv/service/', siteBase);
-      const uvSwUrl = new URL('uv/sw.js', siteBase);
+      const uvSwUrl = new URL('uv/sw.js?v=4', siteBase);
       const uvConfigUrl = new URL('uv/uv-config.js', siteBase);
 
       // Clean up registrations from the broken earlier loaders, then use the
@@ -446,14 +446,22 @@
       }).map(r => r.unregister()));
       window.__uv$config = {
         prefix: uvPrefix.pathname,
+        // Ultraviolet 3.x still requires a `bare` endpoint in its config.
+        // BareMux intercepts Bare requests and forwards them over the selected
+        // Wisp-backed transport, so this path does not need a server handler.
+        bare: new URL('bare/', siteBase).pathname,
         encodeUrl: Ultraviolet.codec.xor.encode,
         decodeUrl: Ultraviolet.codec.xor.decode,
         handler: REMOTE.uvHandler,
         bundle: REMOTE.uvBundle,
         config: uvConfigUrl.pathname,
-        sw: REMOTE.uvSw
+        sw: new URL('uv/sw.js?v=4', siteBase).href
       };
       await ensureTransport();
+      const current = await navigator.serviceWorker.getRegistration(uvPrefix.pathname);
+      if (current && !current.active?.scriptURL.includes('/uv/sw.js')) {
+        await current.unregister();
+      }
       const reg = await navigator.serviceWorker.register(uvSwUrl.href, { scope: uvPrefix.pathname });
       await reg.update();
       await navigator.serviceWorker.ready;
