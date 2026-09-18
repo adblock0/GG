@@ -166,7 +166,7 @@
       </section>
       <section class="section">
         <h3>Browse Engine (change proxy)</h3>
-        <p>Ultraviolet is the default. Scramjet is wired as a selectable engine for deployments that expose its service-worker routes.</p>
+        <p>Ultraviolet is the default. Scramjet uses the same static, no-build setup. Proxy assets are loaded from public CDNs; the service worker stays local to this site.</p>
         <div class="choice-row" id="engineChoices">
           <button class="choice" data-engine="ultraviolet"><strong>Ultraviolet</strong><span>Service-worker proxy route: /uv/service/</span></button>
           <button class="choice" data-engine="scramjet"><strong>Scramjet</strong><span>Service-worker proxy route: /~/sj/</span></button>
@@ -174,7 +174,7 @@
       </section>
       <section class="section">
         <h3>Transport</h3>
-        <p>Choose the transport used by the proxy backend. This mirrors the Epoxy/Libcurl transport options used by the upstream projects.</p>
+        <p>Choose the transport used by the browser proxy connection. Epoxy and Libcurl use the legacy BareMux-compatible interface needed by Ultraviolet 3.x and Scramjet 1.x.</p>
         <div class="choice-row" id="transportChoices">
           <button class="choice" data-transport="epoxy"><strong>Epoxy</strong><span>Encrypted proxy transport.</span></button>
           <button class="choice" data-transport="libcurl"><strong>Libcurl</strong><span>Encrypted libcurl-based transport.</span></button>
@@ -239,6 +239,19 @@
   let scramjetReadyPromise = null;
   let bareMuxConnection = null;
   let transportModule = null;
+  const DEFAULT_WISP = 'wss://wisp.mercurywork.shop/wisp/';
+  const REMOTE = {
+    baremux: 'https://cdn.jsdelivr.net/npm/@mercuryworkshop/bare-mux@2.1.7/dist/index.mjs',
+    scramjet: 'https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.all.js',
+    scramjetWasm: 'https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.wasm.wasm',
+    scramjetSync: 'https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.sync.js',
+    epoxy: 'https://cdn.jsdelivr.net/npm/@mercuryworkshop/epoxy-transport@2.1.28/dist/index.mjs',
+    libcurl: 'https://cdn.jsdelivr.net/npm/@mercuryworkshop/libcurl-transport@1.5.2/dist/index.mjs',
+    uvBundle: 'https://cdn.jsdelivr.net/npm/@titaniumnetwork-dev/ultraviolet@3.2.10/dist/uv.bundle.js',
+    uvHandler: 'https://cdn.jsdelivr.net/npm/@titaniumnetwork-dev/ultraviolet@3.2.10/dist/uv.handler.js',
+    uvSw: 'https://cdn.jsdelivr.net/npm/@titaniumnetwork-dev/ultraviolet@3.2.10/dist/uv.sw.js'
+  };
+  let wispUrl = localStorage.getItem('chicken.wisp') || DEFAULT_WISP;
 
   function loadSettings() {
     try { return { ...defaults, ...(JSON.parse(localStorage.getItem('chicken.settings') || '{}')) }; }
@@ -336,12 +349,17 @@
     return `<button type="button" class="shortcut" data-url="${escapeHtml(url)}"><span class="shortcut-icon">${icon}</span><span class="shortcut-name">${name}</span></button>`;
   }
 
+  async function ensureProxyHost() {
+    if (location.protocol !== 'http:' && location.protocol !== 'https:') {
+      throw new Error('Proxying needs an HTTP(S) origin because browsers do not allow service workers from file://. Upload the static Chicken files to GitHub Pages, Netlify, Cloudflare Pages, or another HTTPS host.');
+    }
+    return true;
+  }
+
   async function loadProxied(tab, frame) {
     try {
       const target = tab.url;
-      if (location.protocol !== 'http:' && location.protocol !== 'https:') {
-        throw new Error('Proxy runtime requires HTTP(S); service workers do not run from file:// pages.');
-      }
+      await ensureProxyHost();
 
       if (settings.engine === 'ultraviolet') {
         const runtime = await ensureUltraviolet();
@@ -383,13 +401,15 @@
   }
 
   async function ensureTransport() {
-    if (!window.BareMux) await loadScriptOnce('/baremux/index.js');
+    if (!window.BareMux) {
+      const mod = await import(REMOTE.baremux);
+      window.BareMux = mod;
+    }
     if (!window.BareMux?.BareMuxConnection) throw new Error('BareMux did not load');
-    if (!bareMuxConnection) bareMuxConnection = new window.BareMux.BareMuxConnection('/baremux/worker.js');
+    if (!bareMuxConnection) bareMuxConnection = new window.BareMux.BareMuxConnection(new URL('bareworker.js', document.baseURI).pathname);
 
-    const nextModule = settings.transport === 'epoxy' ? '/epoxy/index.mjs' : '/libcurl/index.mjs';
+    const nextModule = settings.transport === 'epoxy' ? REMOTE.epoxy : REMOTE.libcurl;
     if (transportModule !== nextModule || (await bareMuxConnection.getTransport()) !== nextModule) {
-      const wispUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/wisp/`;
       const args = settings.transport === 'epoxy'
         ? [{ wisp: wispUrl }]
         : [{ websocket: wispUrl }];
@@ -403,15 +423,21 @@
     if (uvReadyPromise) return uvReadyPromise;
     uvReadyPromise = (async () => {
       if (!navigator.serviceWorker) throw new Error('Service workers unavailable');
-      await loadScriptOnce('/uv/uv.bundle.js');
-      await loadScriptOnce('/uv/uv.config.js');
-      if (!window.__uv$config) throw new Error('Ultraviolet config did not load');
-
-      // The transport must be ready before the UV worker starts handling requests.
+      await loadScriptOnce(REMOTE.uvBundle);
+      if (!window.__uv$config) {
+        window.__uv$config = {
+          prefix: '/uv/service/',
+          encodeUrl: Ultraviolet.codec.xor.encode,
+          decodeUrl: Ultraviolet.codec.xor.decode,
+          handler: REMOTE.uvHandler,
+          bundle: REMOTE.uvBundle,
+          config: '/uv-config.js',
+          sw: '/uv-sw.js'
+        };
+      }
       await ensureTransport();
-      const reg = await navigator.serviceWorker.register('/uv/sw.js', {
-        scope: window.__uv$config.prefix,
-      });
+      const reg = await navigator.serviceWorker.register('/uv-sw.js', { scope: window.__uv$config.prefix });
+      await reg.update();
       await navigator.serviceWorker.ready;
       return { reg, config: window.__uv$config };
     })();
@@ -422,34 +448,46 @@
     if (scramjetReadyPromise) return scramjetReadyPromise;
     scramjetReadyPromise = (async () => {
       if (!navigator.serviceWorker) throw new Error('Service workers unavailable');
-      await loadScriptOnce('/scram/scramjet.all.js');
-      if (!window.BareMux) await loadScriptOnce('/baremux/index.js');
+      await loadScriptOnce(REMOTE.scramjet);
       const controllerCtor = window.$scramjetLoadController?.().ScramjetController;
-      if (!controllerCtor) throw new Error('Scramjet controller did not load');
+      if (!controllerCtor) throw new Error('Scramjet controller did not load from the CDN');
+      const basePath = location.pathname.replace(/[^\/]*$/, '').replace(/\/$/, '') + '/';
       const scramjet = new controllerCtor({
-        files: {
-          wasm: '/scram/scramjet.wasm.wasm',
-          all: '/scram/scramjet.all.js',
-          sync: '/scram/scramjet.sync.js',
-        },
+        prefix: basePath + 'scramjet/',
+        files: { wasm: REMOTE.scramjetWasm, all: REMOTE.scramjet, sync: REMOTE.scramjetSync }
       });
       await scramjet.init();
-
-      // Set the transport before the service worker is ready, matching the
-      // upstream Scramjet App flow.
       await ensureTransport();
-      await navigator.serviceWorker.register('/sw.js');
+      const reg = await navigator.serviceWorker.register(new URL('sw.js', document.baseURI).pathname, { scope: basePath });
       await navigator.serviceWorker.ready;
+      reg.active?.postMessage({ type: 'config', wispurl: wispUrl });
       return scramjet;
     })();
     return scramjetReadyPromise;
   }
 
-  function loadScriptOnce(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[data-dyn="${src}"]`)) return resolve();
-      const script = document.createElement('script'); script.src = src; script.async = true; script.dataset.dyn = src;
-      script.onload = resolve; script.onerror = () => reject(new Error(`Failed to load ${src}`));
+  async function assertAsset(src) {
+    try {
+      const response = await fetch(src, { cache: 'no-store', mode: 'cors' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      // Some CDNs do not expose a CORS-readable response even though the
+      // script itself is loadable. Let the script tag perform the real check.
+      if (/^https?:\/\//i.test(src)) return;
+      throw new Error(`Failed to load ${src}`);
+    }
+  }
+
+  async function loadScriptOnce(src) {
+    if ([...document.scripts].some(s => s.dataset.dyn === src)) return;
+    await assertAsset(src);
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.dataset.dyn = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Failed to execute ${src}`));
       document.head.appendChild(script);
     });
   }
