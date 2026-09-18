@@ -166,7 +166,7 @@
       </section>
       <section class="section">
         <h3>Browse Engine (change proxy)</h3>
-        <p>Ultraviolet is the default. Scramjet uses the same static, no-build setup. Proxy assets are loaded from public CDNs; the service worker stays local to this site.</p>
+        <p>Ultraviolet is the default. Scramjet uses the same static, no-build setup. Proxy assets are loaded from public CDNs; the service worker stays local to this site.</p><p style="margin-top:8px">Search queries use the proxy app's default search engine: Google.</p>
         <div class="choice-row" id="engineChoices">
           <button class="choice" data-engine="ultraviolet"><strong>Ultraviolet</strong><span>Service-worker proxy route: /uv/service/</span></button>
           <button class="choice" data-engine="scramjet"><strong>Scramjet</strong><span>Service-worker proxy route: /~/sj/</span></button>
@@ -240,6 +240,12 @@
   let bareMuxConnection = null;
   let transportModule = null;
   const DEFAULT_WISP = 'wss://wisp.mercurywork.shop/wisp/';
+  // Match the search behavior used by the official Ultraviolet and Scramjet demo apps.
+  // Their hidden search-engine input defaults to Google.
+  const SEARCH_ENGINES = {
+    ultraviolet: 'https://www.google.com/search?q=%s',
+    scramjet: 'https://www.google.com/search?q=%s'
+  };
   const REMOTE = {
     baremux: 'https://cdn.jsdelivr.net/npm/@mercuryworkshop/bare-mux@2.1.7/dist/index.mjs',
     scramjet: 'https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.all.js',
@@ -516,11 +522,24 @@
   function openUrlInNewTab(url) { const t = createTab(url); renderTabs(); renderActiveTab(); syncChrome(); return t; }
 
   function normalizeInput(value) {
-    const raw = String(value || '').trim(); if (!raw) return null;
-    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return raw;
-    if (/^(localhost|127\.0\.0\.1)(:\d+)?(\/.*)?$/i.test(raw)) return 'http://' + raw;
-    if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(raw)) return 'https://' + raw;
-    return `https://www.google.com/search?q=${encodeURIComponent(raw)}`;
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+
+    // Follow the proxy project's own search() behavior:
+    // 1) keep a fully-qualified URL,
+    // 2) accept a hostname when it has a TLD,
+    // 3) otherwise treat the input as a search query.
+    try {
+      return new URL(raw).toString();
+    } catch {}
+
+    try {
+      const candidate = new URL(`http://${raw}`);
+      if (candidate.hostname.includes('.')) return candidate.toString();
+    } catch {}
+
+    const template = SEARCH_ENGINES[settings.engine] || SEARCH_ENGINES.ultraviolet;
+    return template.replace('%s', encodeURIComponent(raw));
   }
 
   function hostname(url) { try { return new URL(url).hostname.replace(/^www\./,'') || 'New Tab'; } catch { return 'New Tab'; } }
