@@ -1,44 +1,52 @@
 # Chicken — static/no-NPM deployment
 
-This build is intentionally **no NPM / no Node**. It is designed to be uploaded as static files to an HTTPS host such as GitHub Pages.
+This build stays **no NPM / no Node**.
 
-## Important file layout
-Upload the **contents of this folder** to the published site root (do not upload only `index.html`). Do not rename or remove the `uv/` folder. The required layout is:
+## GitHub Pages layout
+
+Upload the contents of this folder to the root of the Pages site:
 
 ```text
 index.html
-sw.js
 bareworker.js
-uv-sw.js                # compatibility shim
-uv-config.js            # compatibility shim
+sw.js
+uv-sw.js                 # old-build compatibility alias
+uv-config.js             # old-build compatibility alias
 uv/
-  uv-sw.js              # actual Ultraviolet service worker
-  uv-config.js
+  sw.js                  # active Ultraviolet service-worker loader
+  uv-config.js           # active Ultraviolet config
 ```
 
-The page now registers `uv/uv-sw.js` relative to its own location. That fixes GitHub Pages project-site paths such as `https://adblock0.github.io/<repo>/uv/uv-sw.js`; the old build incorrectly requested `https://adblock0.github.io/uv-sw.js`.
+For a project site such as `https://adblock0.github.io/GG/`, Chicken registers:
 
-## HTTPS
-Service workers require HTTPS (localhost is the normal development exception).
+```text
+https://adblock0.github.io/GG/uv/sw.js
+```
+
+with the scope:
+
+```text
+https://adblock0.github.io/GG/uv/service/
+```
+
+This follows Ultraviolet's documented v3 stock service-worker pattern: import the bundle, import the config, then import the Ultraviolet gateway worker. The active transport is configured through BareMux.
 
 ## Proxy transport
-The UI still offers Ultraviolet/Scramjet and Epoxy/Libcurl. Those runtimes are loaded from their public CDNs. The Wisp relay URL can be changed from the app's transport configuration in the source.
 
-## GitHub Pages check
-After publishing, these URLs should return JavaScript instead of a 404:
+The default Wisp endpoint is `wss://wisp.mercurywork.shop/` and **both Epoxy and Libcurl receive it as `{ wisp: ... }`**. The previous build incorrectly passed Libcurl as `{ websocket: ... }`, which can lead to the connection failure you reported.
 
-- `.../uv/uv-sw.js`
-- `.../uv/uv-config.js`
-- `.../sw.js`
-- `.../bareworker.js`
+A Wisp relay is still required. GitHub Pages is only the static frontend; it does not provide the relay/backend itself.
 
-For a GitHub Pages project site, replace `...` with the full repository-site path.
+## Cookies
 
+Ultraviolet 3.x stores proxy cookies in its IndexedDB cookie database (`__op`). The browser profile therefore keeps those proxy cookies on the same origin across reloads/internal tabs, subject to the browser's own storage/retention rules. Scramjet's current controller also persists its cookie jar in IndexedDB.
 
-## GitHub Pages
+## Panic button and tab cloak
 
-This package is designed to work as a static GitHub Pages project site without npm or Node. Upload the contents of this folder to the repository's Pages branch/root. Keep `index.html`, `uv-sw.js`, `uv-config.js`, `sw.js`, and `bareworker.js` at the same level.
+The panic button now navigates the **real browser tab** directly to the configured URL, with no proxy encoding and no new tab.
 
-For a project site such as `https://adblock0.github.io/GG/`, Chicken registers the Ultraviolet worker from `https://adblock0.github.io/GG/uv-sw.js` with scope `https://adblock0.github.io/GG/uv/service/`. Do not change that to `/uv/uv-sw.js` unless you also upload that nested file.
+The real browser tab title/favicon stays on the selected cloak while you switch Chicken's internal tabs and while proxy pages are open. Proxy page titles only affect the internal Chicken tab labels.
 
-GitHub Pages must serve the site over HTTPS. Service workers require a secure origin, and the worker script must be same-origin with the page; the current design intentionally keeps the loader worker on your GitHub Pages origin while it imports the UV runtime from the CDN.
+## HTTPS
+
+Service workers require a secure context. GitHub Pages provides HTTPS; opening the HTML as `file://` cannot run this proxy architecture.

@@ -150,7 +150,7 @@
       <div class="modal-head"><div class="modal-title">Settings</div><button class="close-modal" data-close-settings>×</button></div>
       <section class="section">
         <h3>Tab Cloak</h3>
-        <p>For normal/non-proxy tabs, change the title and favicon shown by the browser tab.</p>
+        <p>Change the title and favicon shown by the real browser tab. This identity stays fixed while you switch Chicken's internal tabs and while proxy pages are open.</p>
         <div class="cloak-grid" id="cloakGrid">
           <button class="cloak-card" data-cloak="newtab"><div class="cloak-top"><img src="https://kidsclassnest.com/images/icons/chromenewtab.ico" alt=""/><div class="cloak-title">New Tab</div></div><div class="cloak-url">chromenewtab.ico</div></button>
           <button class="cloak-card" data-cloak="clever"><div class="cloak-top"><img src="https://kidsclassnest.com/images/icons/clever.png" alt=""/><div class="cloak-title">Clever - Portal</div></div><div class="cloak-url">clever.png</div></button>
@@ -166,7 +166,7 @@
       </section>
       <section class="section">
         <h3>Browse Engine (change proxy)</h3>
-        <p>Ultraviolet is the default. Scramjet uses the same static, no-build setup. Proxy assets are loaded from public CDNs; the service worker stays local to this site.</p><p style="margin-top:8px">Search queries use the proxy default search engine template.</p>
+        <p>Ultraviolet is the default. Scramjet uses the same static, no-build setup. Proxy cookies are stored by the proxy engine in IndexedDB on this site, so they can persist across internal tabs and reloads.</p><p style="margin-top:8px">Search queries use the proxy default search engine template.</p>
         <div class="choice-row" id="engineChoices">
           <button class="choice" data-engine="ultraviolet"><strong>Ultraviolet</strong><span>Service-worker proxy route: /uv/service/</span></button>
           <button class="choice" data-engine="scramjet"><strong>Scramjet</strong><span>Service-worker proxy route: /~/sj/</span></button>
@@ -239,7 +239,7 @@
   let scramjetReadyPromise = null;
   let bareMuxConnection = null;
   let transportModule = null;
-  const DEFAULT_WISP = 'wss://wisp.mercurywork.shop/wisp/';
+  const DEFAULT_WISP = 'wss://wisp.mercurywork.shop/';
   // Search queries go through the proxy using the proxy-style default search template.
   // This is deliberately not hardcoded to Google. DuckDuckGo is the default used by
   // generated proxy projects referenced in the ProxDocs search-engine guide.
@@ -312,7 +312,7 @@
     if (!tab) return;
     if (!tab.proxy || !tab.url) {
       renderHome(tab);
-      updateBrowserTabIdentity(tab, false);
+      updateBrowserTabIdentity();
       return;
     }
     const page = document.createElement('div'); page.className = 'page active';
@@ -321,14 +321,14 @@
     tab.iframe = frame;
     frame.addEventListener('load', () => {
       $('#proxy-status')?.remove();
-      updateBrowserTabIdentity(tab, true);
+      updateBrowserTabIdentity();
     });
     page.appendChild(frame);
     const status = document.createElement('div'); status.id = 'proxy-status'; status.className = 'statusbar'; status.textContent = `${settings.engine} • ${settings.transport}`;
     page.appendChild(status);
     contentEl.appendChild(page);
     loadProxied(tab, frame);
-    updateBrowserTabIdentity(tab, true);
+    updateBrowserTabIdentity();
   }
 
   function renderHome(tab) {
@@ -386,7 +386,7 @@
         created.frame.title = tab.title;
         created.frame.addEventListener('load', () => {
           $('#proxy-status')?.remove();
-          updateBrowserTabIdentity(tab, true);
+          updateBrowserTabIdentity();
         });
         pageReplaceFrame(frame, created.frame);
         tab.frameController = created;
@@ -419,7 +419,7 @@
     if (transportModule !== nextModule || (await bareMuxConnection.getTransport()) !== nextModule) {
       const args = settings.transport === 'epoxy'
         ? [{ wisp: wispUrl }]
-        : [{ websocket: wispUrl }];
+        : [{ wisp: wispUrl }];
       await bareMuxConnection.setTransport(nextModule, args);
       transportModule = nextModule;
     }
@@ -433,17 +433,16 @@
       await loadScriptOnce(REMOTE.uvBundle);
       const siteBase = new URL('./', document.baseURI);
       const uvPrefix = new URL('uv/service/', siteBase);
-      // The worker lives beside index.html so GitHub Pages project sites do not
-      // require a nested /uv/ directory just to register a scoped worker.
-      const uvSwUrl = new URL('uv-sw.js', siteBase);
-      const uvConfigUrl = new URL('uv-config.js', siteBase);
+      const uvSwUrl = new URL('uv/sw.js', siteBase);
+      const uvConfigUrl = new URL('uv/uv-config.js', siteBase);
 
-      // Remove the old nested worker registration from earlier Chicken builds.
-      // It can otherwise keep a stale /uv/uv-sw.js registration around.
+      // Clean up registrations from the broken earlier loaders, then use the
+      // stock Ultraviolet layout: /uv/sw.js imports the bundle + config and
+      // then the gateway worker. This matches the upstream v3 architecture.
       const oldRegistrations = await navigator.serviceWorker.getRegistrations();
       await Promise.all(oldRegistrations.filter(r => {
         const u = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '';
-        return u.includes('/uv/uv-sw.js');
+        return u.includes('/uv-sw.js') || u.includes('/uv/uv-sw.js');
       }).map(r => r.unregister()));
       window.__uv$config = {
         prefix: uvPrefix.pathname,
@@ -452,7 +451,7 @@
         handler: REMOTE.uvHandler,
         bundle: REMOTE.uvBundle,
         config: uvConfigUrl.pathname,
-        sw: uvSwUrl.pathname
+        sw: REMOTE.uvSw
       };
       await ensureTransport();
       const reg = await navigator.serviceWorker.register(uvSwUrl.href, { scope: uvPrefix.pathname });
@@ -578,18 +577,18 @@
     addressBar.value = tab.url || '';
     backBtn.disabled = !isProxyTab(tab) || tab.historyIndex <= 0;
     forwardBtn.disabled = !isProxyTab(tab) || tab.historyIndex >= tab.history.length - 1;
-    updateBrowserTabIdentity(tab, isProxyTab(tab));
+    // Keep the real browser tab identity independent of Chicken's internal tabs.
+    applyBrowserCloak();
   }
 
-  function updateBrowserTabIdentity(tab, proxied) {
-    if (proxied) {
-      document.title = tab?.title ? `${tab.title} • Chicken` : APP_TITLE;
-      faviconEl.href = siteIcon(tab.url);
-    } else {
-      const cloak = CLOAKS[settings.cloak] || CLOAKS.newtab;
-      document.title = cloak.title;
-      faviconEl.href = cloak.icon;
-    }
+  function updateBrowserTabIdentity() {
+    applyBrowserCloak();
+  }
+
+  function applyBrowserCloak() {
+    const cloak = CLOAKS[settings.cloak] || CLOAKS.newtab;
+    document.title = cloak.title;
+    faviconEl.href = cloak.icon;
   }
 
   function openSettings() {
@@ -613,7 +612,7 @@
     persistSettings();
     closeSettings();
     const active = getActive();
-    if (active) updateBrowserTabIdentity(active, isProxyTab(active));
+    if (active) updateBrowserTabIdentity();
     if (active && isProxyTab(active)) {
       // Apply engine/transport changes immediately to the active proxy tab.
       uvReadyPromise = null;
@@ -630,8 +629,20 @@
     const hot = settings.panicHotkey;
     if (!hot) return;
     const key = hot.toLowerCase();
-    const panic = normalizeInput(settings.panicUrl) || defaults.panicUrl;
-    if (keyMatches(pendingEvent, key)) { navigate(panic); pendingEvent = null; }
+    if (!keyMatches(pendingEvent, key)) return;
+
+    let panicUrl;
+    try {
+      panicUrl = new URL(settings.panicUrl || defaults.panicUrl, location.href);
+      if (!/^https?:$/.test(panicUrl.protocol)) throw new Error('Panic URL must use http:// or https://');
+    } catch {
+      panicUrl = new URL(defaults.panicUrl);
+    }
+
+    // Navigate the actual browser tab. Do not wrap the panic destination in
+    // Ultraviolet/Scramjet and do not open a new tab.
+    window.location.assign(panicUrl.href);
+    pendingEvent = null;
   }
 
   let pendingEvent = null;
@@ -712,6 +723,7 @@
 
   // Initial tab.
   createTab();
+  applyBrowserCloak();
   syncSettingsUI();
 })();
 </script>
